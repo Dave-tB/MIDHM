@@ -11,17 +11,17 @@ class Reconstructor:
                   dx=1.12e-6,
                   dy=1.12e-6,
                   z=4e-2,
-                  dmax=7e-3,
+                  d=7e-3,
                   numIteration=1,
                   verbose=False):
 
 
     Ny, Nx = img.shape
+    
+    imgH = (img - ref) / (np.sqrt(ref))
 
-    imgH = img - np.mean(img)
-
-
-
+    # method of subtracting the mean
+    ##imgH = img - np.mean(img)
 
     # spatial sampling
     nx = np.arange(-Nx/2, Nx/2, dtype=float)
@@ -46,7 +46,8 @@ class Reconstructor:
     # Creating initial complex-valued field distribution in the detector plane
     phase = np.zeros((Ny, Nx), dtype=complex)
     
-
+    # Fourier Spectrum of the Sample
+    FimgH = np.fft.fftshift(np.fft.fft2(imgH))
     # Creating wave propagation term
     prop = np.exp((1j*2*np.pi*dmax)*np.sqrt((1/lambda_**2) - Fx**2 - Fy**2))
 

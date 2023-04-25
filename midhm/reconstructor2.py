@@ -2,11 +2,19 @@ import numpy as np
 
 from skimage.restoration import unwrap_phase
 from scipy.fft import dct
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+import scipy
+from scipy.integrate import simps
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.mplot3d import Axes3D
 
 class Reconstructor2:
 
   @staticmethod
-  def reconstruct2(img,
+  def reconstruct2(img, 
+                   ref,
                   lambda_=488e-9, 
                   dx=1.12e-6,
                   dy=1.12e-6,
@@ -49,7 +57,7 @@ class Reconstructor2:
     # Fourier Spectrum of the Sample
     FimgH = np.fft.fftshift(np.fft.fft2(imgH))
     # Creating wave propagation term
-    prop = np.exp((1j*2*np.pi*d)*np.sqrt(1/(Lambda**2) - Fx**2 - Fy**2))
+    prop = np.exp((1j*2*np.pi*d)*np.sqrt(1/(lambda_**2) - Fx**2 - Fy**2))
 
 
     detField = imgH * np.exp(1j * phase)
@@ -71,7 +79,7 @@ class Reconstructor2:
     mu = np.sum(np.lib.stride_tricks.sliding_window_view(R_TI_padded, (n,n)), axis=(2,3))/n**2
 
     UnimgH = unwrap_phase(phi)
-    UnimgH2 = Reconstructor.Unwrap_TIE_DCT_Iter(phi)
+    UnimgH2 = Reconstructor2.Unwrap_TIE_DCT_Iter(phi)
     T = (abs(R_TI)**2 - mu)**2
     T_padded = np.hstack([np.vstack([T, np.zeros((n-1,T.shape[1]))]),\
                                         np.zeros((T.shape[0]+n-1,n-1))])
@@ -83,12 +91,13 @@ class Reconstructor2:
     R_S = R_TI*mask
     
     z = d
-    G = np.exp((1j*2*np.pi*z)*np.sqrt(1/(Lambda**2) - Fx**2 - Fy**2))
+    G = np.exp((1j*2*np.pi*z)*np.sqrt(1/(lambda_**2) - Fx**2 - Fy**2))
     FimG = np.fft.fftshift(np.fft.fft2(R_S))
     t2 = (np.fft.ifft2(np.fft.fftshift(FimG*G)))
     amp2 = (abs(t2))                   # amplitude
     phi2 = np.angle(-t2)              # wrapped phase
-    UnimgH3 = -unwrap_phase(phi2)     # unwrapped phase
+    UnimgH3 = -unwrap_phase(phi2)
+    UnimgH2 = Reconstructor2.Unwrap_TIE_DCT_Iter(phi2)    # unwrapped phase
     
     return t2, amp2, phi2, FimgH, UnimgH, UnimgH2, UnimgH3
 
@@ -98,12 +107,12 @@ class Reconstructor2:
 
   @staticmethod
   def Unwrap_TIE_DCT_Iter(phase_wrap):
-    phi1 = Reconstructor.unwrap_TIE(phase_wrap)
+    phi1 = Reconstructor2.unwrap_TIE(phase_wrap)
     phi1 = phi1 + np.mean(phase_wrap) - np.mean(phi1) # adjust piston
     K1 = np.round((phi1 - phase_wrap) / (2 * np.pi)) # calculate integer K
     phase_unwrap = phase_wrap + 2 * K1 * np.pi
     residue = np.unwrap(phase_unwrap - phi1)
-    phi1 = phi1 + Reconstructor.unwrap_TIE(residue)
+    phi1 = phi1 + Reconstructor2.unwrap_TIE(residue)
     phi1 = phi1 + np.mean(phase_wrap) - np.mean(phi1) # adjust piston
     K2 = np.round((phi1 - phase_wrap) / (2 * np.pi)) # calculate integer K
     phase_unwrap = phase_wrap + 2 * K2 * np.pi
@@ -112,7 +121,7 @@ class Reconstructor2:
     c = 0
     while np.sum(np.abs(K2 - K1)) > 0 and c < 2:
         K1 = K2
-        phic = Reconstructor.unwrap_TIE(residue)
+        phic = Reconstructor2.unwrap_TIE(residue)
         phi1 = phi1 + phic
         phi1 = phi1 + np.mean(phase_wrap) - np.mean(phi1) # adjust piston
         K2 = np.round((phi1 - phase_wrap) / (2 * np.pi)) # calculate integer K
@@ -129,18 +138,18 @@ class Reconstructor2:
 
 
     edx = np.hstack([np.zeros([psi.shape[0], 1]), 
-                     Reconstructor.wrapToPi(np.diff(psi, axis=1)),
+                     Reconstructor2.wrapToPi(np.diff(psi, axis=1)),
                      np.zeros([psi.shape[0], 1])])
 
     edy = np.vstack([np.zeros([1, psi.shape[1]]), 
                      # np.unwrap(np.diff(psi, axis=0), axis=0),  ## <<< not good
                      # unwrap_phase(np.diff(psi, axis=0)) ## <<< maybe
-                     Reconstructor.wrapToPi(np.diff(psi, axis=0)),
+                     Reconstructor2.wrapToPi(np.diff(psi, axis=0)),
                      np.zeros([1, psi.shape[1]])])
 
     lap = np.diff(edx, axis=1) + np.diff(edy, axis=0) # calculate Laplacian using the finite difference
     rho = np.imag(np.conj(psi) * lap) # calculate right hand side of Eq.(4) in the manuscript
-    phase_unwrap = Reconstructor.solvePoisson(rho)
+    phase_unwrap = Reconstructor2.solvePoisson(rho)
     return phase_unwrap
 
   @staticmethod

@@ -1,8 +1,8 @@
 import cv2
 import os
+import numpy as np
 
 class Util:
-
   @staticmethod
   def load(image='data/obj1.tif'):
     '''
@@ -45,3 +45,10 @@ class Util:
             
     return img
 
+  @staticmethod
+  def thickness(recon, ri_bead = 1.430, ri_med = 1.510, lambda_ = 0.488):
+    # Find all connected components (called here "labels")
+    ref_index_diff = abs(ri_bead - ri_med)
+    factor = lambda_ / (2 * np.pi * ref_index_diff)
+    thickness = factor * recon
+    return thickness
